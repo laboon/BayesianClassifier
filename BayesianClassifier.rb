@@ -22,12 +22,12 @@ c = Classifier.new
 print "Enter training data file > "
 tdf = readline
 c.train tdf
-print "Classifier trained!"
+puts "Classifier trained!"
 while (true)
   print "Enter phrase (Ctrl-C to quit) > "
   phrase = readline.chomp
-  pos_prob = c.bayes_calc(phase, :positive).to_f
-  neg_prob = c.bayes_calc(phase, :negative).to_f
+  pos_prob = c.bayes_calc(phrase, :positive).to_f
+  neg_prob = c.bayes_calc(phrase, :negative).to_f
   print_results(pos_prob, neg_prob)
   
 end

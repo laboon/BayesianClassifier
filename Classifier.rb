@@ -6,6 +6,8 @@ class Classifier
     
     @pos_prob = Hash.new
     @neg_prob = Hash.new
+    @pos_spec_prob = Hash.new
+    @neg_spec_prob = Hash.new
     @tot_prob = Hash.new
     
     @tot_pos_words = 0
@@ -49,6 +51,8 @@ class Classifier
     @pos_count.each { |word, count| @pos_prob[word] = @pos_count[word].to_f / @tot_words }
     @neg_count.each { |word, count| @neg_prob[word] = @neg_count[word].to_f / @tot_words }
     
+    @pos_count.each { |word, count| @pos_spec_prob[word] = @pos_count[word].to_f / @tot_pos_words }
+    @neg_count.each { |word, count| @neg_spec_prob[word] = @neg_count[word].to_f / @tot_neg_words }
   end
 
   def calc_phrase_vals(phrase, polarity)
@@ -89,20 +93,56 @@ class Classifier
   
   
   def train(training_data_file)
-    print "Beginning training..."
+    puts "Beginning training..."
     read_in_file(training_data_file.chomp)
-    print "...done!"
+    puts "...done!"
   end
   
-  def strip_null_elements(phrase, polarity)
+  def strip_null_elements(words, polarity)
+    cleared_words = []
     case polarity
     when :positive
-      
+      words.each { |word|
+        if @pos_prob.include?(word)
+          cleared_words.push(word)  
+        end
+      }
+    when :negative
+      words.each { |word|
+        if @neg_prob.include?(word)
+          cleared_words.push(word)  
+        end
+      }
     end
+    return cleared_words
   end
   
   def bayes_calc(phrase, polarity)
-    phrase = strip_null_elements(phrase, polarity)
+    phrase.downcase!
+    phrase.gsub!(/[^0-9a-z]/i, ' ')
+    words = phrase.split
+    # Ignore words that we've never seen before
+    words = strip_null_elements(words, polarity)
+    # multiplicative identity
+    @numerator = 1.0
+    @denominator = 1.0
+    case polarity
+    when :positive
+      words.each { |word| @numerator *= @pos_spec_prob[word]}  
+    when :negative
+      words.each { |word| @numerator *= @neg_spec_prob[word]}  
+    end
+    @numerator *= 0.5 # probability that it is pos or neg
+    
+    case polarity
+    when :positive
+      words.each { |word| @denominator *= @pos_prob[word]}  
+    when :negative
+      words.each { |word| @denominator *= @neg_prob[word]}  
+    end
+    puts "? " + @numerator.to_s + " / " + @denominator.to_s
+    prob_pol = @numerator / @denominator
+    return prob_pol
   end
   
 end
