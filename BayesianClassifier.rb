@@ -1,4 +1,4 @@
-require_relative 'Classifier'
+require './Classifier'
 
 # Execution starts here
 
