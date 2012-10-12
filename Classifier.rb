@@ -89,9 +89,20 @@ class Classifier
   
   
   def train(training_data_file)
-    print "Beginning training"
+    print "Beginning training..."
     read_in_file(training_data_file.chomp)
-    print ".done!"
+    print "...done!"
+  end
+  
+  def strip_null_elements(phrase, polarity)
+    case polarity
+    when :positive
+      
+    end
+  end
+  
+  def bayes_calc(phrase, polarity)
+    phrase = strip_null_elements(phrase, polarity)
   end
   
 end
