@@ -1,16 +1,13 @@
 require './Classifier'
 
 def print_results(pos_prob, neg_prob)
-  print "\nPositive probability: "
-  puts pos_prob
-  print "\nNegative probability: "
-  puts neg_prob
+  
   if (pos_prob == neg_prob)
-    puts "Not sure of polarity"
+    puts "\n *** UNKNOWN sentiment polarity ***"
   elsif (pos_prob > neg_prob)
-    puts "Positive sentiment"
+    puts "\n *** Positive sentiment ***"
   else
-    puts "Negative sentiment"
+    puts "\n *** Negative sentiment ***"
   end
 end
 

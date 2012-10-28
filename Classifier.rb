@@ -48,11 +48,11 @@ class Classifier
 
   def calc_probability
     # Calculate probability a word is in a positive or negative
-    @pos_count.each { |word, count| @pos_prob[word] = @pos_count[word].to_f / @tot_words }
-    @neg_count.each { |word, count| @neg_prob[word] = @neg_count[word].to_f / @tot_words }
+    @pos_count.each { |word, count| @pos_prob[word] = @pos_count[word].to_f / (@pos_count[word].to_f + @neg_count[word].to_f)}
+    @neg_count.each { |word, count| @neg_prob[word] = @neg_count[word].to_f / (@pos_count[word].to_f + @neg_count[word].to_f)}
     
-    @pos_count.each { |word, count| @pos_spec_prob[word] = @pos_count[word].to_f / @tot_pos_words }
-    @neg_count.each { |word, count| @neg_spec_prob[word] = @neg_count[word].to_f / @tot_neg_words }
+    @pos_count.each { |word, count| @pos_spec_prob[word] = @pos_count[word].to_f / (@pos_count[word].to_f + @neg_count[word].to_f)}
+    @neg_count.each { |word, count| @neg_spec_prob[word] = @neg_count[word].to_f / (@pos_count[word].to_f + @neg_count[word].to_f)}
   end
 
   def calc_phrase_vals(phrase, polarity)
@@ -60,7 +60,7 @@ class Classifier
     split_phrase = phrase.split
     split_phrase.each { |word| incr_word_instance(word, polarity)}
     # @tot_words = @tot_pos_words + @tot_neg_words
-    puts @tot_words.to_s + ": " + @tot_pos_words.to_s + " + " + @tot_neg_words.to_s
+    # puts @tot_words.to_s + ": " + @tot_pos_words.to_s + " + " + @tot_neg_words.to_s
     
     
   end
@@ -78,16 +78,15 @@ class Classifier
     while (line = file_reader.gets)
       line.chomp!
       if (line.eql?("*"))
-          puts "Switching to neg"
+          # puts "Switching to neg"
           cur_status = :negative
       else
-        puts "Calculating " + line
+        # puts "Calculating " + line
         calc_phrase_vals(line, cur_status)
       end
     end
     
     calc_probability
-    print_probs
   
   end
   
@@ -95,25 +94,29 @@ class Classifier
   def train(training_data_file)
     puts "Beginning training..."
     read_in_file(training_data_file.chomp)
+    print_probs
     puts "...done!"
   end
   
-  def strip_null_elements(words, polarity)
+  def strip_null_elements(words)
     cleared_words = []
-    case polarity
-    when :positive
-      words.each { |word|
-        if @pos_prob.include?(word)
-          cleared_words.push(word)  
-        end
-      }
-    when :negative
-      words.each { |word|
-        if @neg_prob.include?(word)
-          cleared_words.push(word)  
-        end
-      }
-    end
+    words.each { |word|
+      if @pos_prob.include?(word) or @neg_prob.include?(word)
+        cleared_words.push(word)  
+      end
+    }
+    return cleared_words
+  end
+  
+  def strip_small_elements(words, min_size)
+    cleared_words = []
+    
+    words.each { |word|
+      if word.length >= min_size
+        cleared_words.push(word)
+      end
+    }
+ 
     return cleared_words
   end
   
@@ -121,27 +124,60 @@ class Classifier
     phrase.downcase!
     phrase.gsub!(/[^0-9a-z]/i, ' ')
     words = phrase.split
+    
     # Ignore words that we've never seen before
-    words = strip_null_elements(words, polarity)
+    words = strip_null_elements(words)
+    
+    # Ignore words that are less than three characters
+    # words = strip_small_elements(words, 4)
+    
     # multiplicative identity
-    @numerator = 1.0
-    @denominator = 1.0
-    case polarity
-    when :positive
-      words.each { |word| @numerator *= @pos_spec_prob[word]}  
-    when :negative
-      words.each { |word| @numerator *= @neg_spec_prob[word]}  
-    end
-    @numerator *= 0.5 # probability that it is pos or neg
+    numerator = 1.0
+    denominator = 1.0
+    denominator2 = 1.0
     
     case polarity
     when :positive
-      words.each { |word| @denominator *= @pos_prob[word]}  
+      puts "\nPositive word probabilities:\n"
+      words.each { |word|
+        # null check, basically
+        @pos_spec_prob[word] ||= 0.01
+        numerator *= @pos_spec_prob[word]
+        puts word + ": " + @pos_spec_prob[word].to_s
+        }  
     when :negative
-      words.each { |word| @denominator *= @neg_prob[word]}  
+      puts "\nNegative word probabilities:\n"
+      words.each { |word|
+        @neg_spec_prob[word] ||= 0.01
+        numerator *= @neg_spec_prob[word]
+        puts word + ": " + @neg_spec_prob[word].to_s
+        }
     end
-    puts "? " + @numerator.to_s + " / " + @denominator.to_s
-    prob_pol = @numerator / @denominator
+    
+    
+    numerator *= 0.5 # probability that it is pos or neg
+    
+    case polarity
+    when :positive
+      # first the positives...
+      words.each { |word|
+        @pos_prob[word] ||= 0.01
+        denominator *= @pos_prob[word]
+      }
+      # then the minuses..
+      words.each { |word| denominator2 *= (1 - @pos_prob[word])}
+    when :negative
+      words.each { |word|
+        @neg_prob[word] ||= 0.01
+        denominator *= @neg_prob[word]
+      }
+      words.each { |word| denominator2 *= (1 - @neg_prob[word])}
+    end
+    # puts "? " + @numerator.to_s + " / " + @denominator.to_s
+    prob_pol = numerator / (denominator + denominator2)
+    if prob_pol.nan? 
+      prob_pol = 0.0
+    end
     return prob_pol
   end
   
